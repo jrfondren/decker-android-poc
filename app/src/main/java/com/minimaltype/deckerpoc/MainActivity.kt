@@ -15,6 +15,8 @@ import android.net.Uri
 import android.webkit.JavascriptInterface
 import android.webkit.MimeTypeMap
 import android.webkit.ValueCallback
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -61,6 +63,15 @@ class MainActivity : ComponentActivity() {
                     Toast.makeText(this@MainActivity, "Saved $filename", Toast.LENGTH_SHORT).show()
                 }
             }
+            @JavascriptInterface
+            fun openExternal(url: String) {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Toast.makeText(this@MainActivity, "Cannot open URL", Toast.LENGTH_SHORT).show()
+                }
+            }
         }, "Android")
 
         val settings = webView.settings
@@ -98,10 +109,33 @@ class MainActivity : ComponentActivity() {
                 };
             })();
         """.trimIndent()
+        // WebView doesn't want to go easily from file:// to anything else
+        // WebView also hates http:// by default, but Decker has http://beyondloom.com links
+        // Decker open_url passes '_blank' to force a separate tab, but we're single-window
+        val windowOpenJs = """
+            (function() {
+                const orig = window.open;
+                window.open = function(url, target, features) {
+                    if (url && url.startsWith('http://')) {
+                        url = url.replace(/^http:\/\//, 'https://');
+                    }
+                    if (target == '_blank') {
+                        Android.openExternal(url);
+                        return null;
+                    } else if (target == '_self') {
+                        return orig.call(window, url, target, features);
+                    } else {
+                        window.location.href = url;
+                        return { closed: false, close: function() {}, focus: function() {}, }; // dummy
+                    }
+                };
+            })();
+        """.trimIndent()
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 webView.evaluateJavascript(injectViewportJs, null)
                 webView.evaluateJavascript(fileSaverJs, null)
+                webView.evaluateJavascript(windowOpenJs, null)
             }
         }
         webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->

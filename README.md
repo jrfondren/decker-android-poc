@@ -6,7 +6,8 @@ This is just JS-enabled WebView that loads Decker's own *unmodified* [tour.html]
 2. a `saveBlob` function is added to the WebView, with a toast message
 3. the 'target' anchor's click function is replaced with some JS that calls `saveBlob`, thus letting Decker save files
 4. the WebView's file chooser lets it Decker open .html files (with a ton of Android security caveats: it doesn't work to save an .html in Brave and then load it in Decker)
-5. the app is fullscreened and locked to horizontal orientations
+5. window.open is hijacked to open 'new tabs' in Android's default browser instead
+6. the app is fullscreened and locked to horizontal orientations
 
 The code is inept and largely generated.
 
